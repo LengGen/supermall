@@ -33,17 +33,17 @@
 <style scoped>
   .recommend {
     display: flex;
+    width: 100%;
     text-align: center;
-    font-size: 12px;
-
-    padding: 10px 0 20px;
-    justify-content: center;
-
+    padding: 5px;
+    border-bottom: 10px solid #eee;
+    justify-content:space-around;
   }
 
   .recommend-item img {
-    width: 80%;
-    height: 80%;
+    width: 70px;
+    height: 65px;
+    border-radius: 100%;
   }
 
 </style>
