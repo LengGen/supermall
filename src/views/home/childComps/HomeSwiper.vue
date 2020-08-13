@@ -2,7 +2,7 @@
   <swiper>
     <swiper-item v-for="item in banner" :key="item.acm">
       <a :href="item.link">
-        <img :src="item.image923" alt="">
+        <img :src="item.image923" alt="" @load="imageLoad">
       </a>
     </swiper-item>
   </swiper>
@@ -23,14 +23,22 @@
     },
     data () {
         return {
-
+          isLoad: false
         };
     },
-    methods: {},
     components: {
       Swiper,
       SwiperItem
     },
+    methods: {
+      imageLoad() {
+        // 只需要发出一次
+        if (!this.isLoad) {
+          this.$emit('swiperImageLoad')
+          this.isLoad = true
+        }
+      }
+    }
 }
 </script>
 

@@ -5,20 +5,32 @@
       <div slot="center">购物街</div>
     </nav-bar>
 
-    <scroll class="content" ref="scroll">
-      <home-swiper :banner="banner"></home-swiper>
+    <tab-control :titles="['流行', '新款', '精选']"
+                  @tabClick="tabClick"
+                  ref="tabControl1"
+                  class="tab-control"
+                  v-show="isTabFixed"></tab-control>
+
+    <scroll class="content"
+            ref="scroll"
+            :probe-type="3"
+            @scroll="contentScroll"
+            :pull-up-load="true"
+            @pullingUp="loadMore">
+      <home-swiper :banner="banner"
+                   @swiperImageLoad="swiperImageLoad"></home-swiper>
       <recommend-view :recommend="recommend"></recommend-view>
       <feature-view></feature-view>
 
-      <tab-control class="tab-control"
-        :titles="['流行', '新款', '精选']"
-        @tabClick="tabClick"></tab-control>
+      <tab-control :titles="['流行', '新款', '精选']"
+                   @tabClick="tabClick"
+                   ref="tabControl2"></tab-control>
 
       <goods-list :goods="showGoods"></goods-list>
     </scroll>
 
     <!-- 如果要监听组件的点击，就必须用 .native  -->
-    <back-top @click.native="backClick"></back-top>
+    <back-top @click.native="backClick" v-show="isShowBackTop"></back-top>
 
   </div>
 </template>
@@ -39,6 +51,8 @@
       getHomeGoods
     } from "network/home"
 
+    import {debounce} from 'common/utils'
+
     export default {
     name: 'Home',
     data () {
@@ -50,7 +64,11 @@
             'new': {page: 0, list:[]},
             'sell': {page: 0, list:[]}
           },
-          currentType: 'pop'
+          currentType: 'pop',
+          isShowBackTop: false,
+          tabOffsetTop: 0,
+          isTabFixed: false,
+          saveY:0
         };
     },
     components: {
@@ -62,7 +80,7 @@
       TabControl,
       GoodsList,
       Scroll,
-      BackTop
+      BackTop,
     },
     computed: {
       showGoods() {
@@ -77,7 +95,25 @@
       this.getHomeGoods('pop')
       this.getHomeGoods('new')
       this.getHomeGoods('sell')
+    },
+    mounted () {
+      // 进行防抖操作
+      const refresh = debounce(this.$refs.scroll.refresh, 50)
 
+      // 1. 监听 item中图片加载完成
+      this.$bus.$on('itemImageLoad', () => {
+        refresh()
+      })
+    },
+    // destroyed () {
+    //   console.log("homedied");
+    // },
+    activated () {
+      this.$refs.scroll.scrollTo(0, this.saveY, 0)
+      this.$refs.scroll.refresh()   //  防止可能突然回到顶部
+    },
+    deactivated () {
+      this.saveY = this.$refs.scroll.scroll.y
     },
     methods: {
       // 事件监听相关的方法
@@ -93,10 +129,30 @@
             this.currentType = 'sell'
             break
         }
+        // 让两个tabcontrol的状态保持一致
+        this.$refs.tabControl1.currentIndex = index
+        this.$refs.tabControl2.currentIndex = index
       },
       backClick() {
         this.$refs.scroll.scrollTo(0,0)
       },
+      contentScroll(position) {
+        // 1. 判断BackTop是否显示
+        this.isShowBackTop = -position.y > 1000
+
+        // 2. 决定tabControl是否吸顶(position:fixed)
+        this.isTabFixed = (-position.y) > this.tabOffsetTop
+      },
+      loadMore() {
+        this.getHomeGoods(this.currentType)
+      },
+      swiperImageLoad() {
+        // 2. 获取tabControl的offsetTop
+        // 所有的组件都有一个属性 $el ： 用于获取组件中的元素
+        // this.tabOffsetTop = this.$refs.tabControl.$el.offsetTop;
+        this.tabOffsetTop = this.$refs.tabControl2.$el.offsetTop;
+      },
+
       // 网络请求相关的方法
       getHomeMultidata() {
         getHomeMultidata().then(res => {
@@ -109,9 +165,12 @@
         const page = this.goods[type].page + 1
         getHomeGoods(type, page).then(res => {
           // console.log(res);
-          // res => pop前30 page:1
+          // res => type前30 page:1
+          // ...语法 把数组中的数据一个一个取出来 再一个一个存到 goods[type].list中去
           this.goods[type].list.push(...res.data.list)
           this.goods[type].page += 1
+
+          this.$refs.scroll.finishPullUp()  // 完成下拉加载更多
         })
       }
     },
@@ -131,18 +190,33 @@
     background-color: var(--color-tint);
     color: #fff;
 
-    position: fixed;
+    /* 使用浏览器原生滚动时，加上下面的用来测试 */
+    /* 给主题内容加了scroll滚动后，但对nav没有加，所以下面的效果有没有都无所谓 */
+    /* position: fixed;
     left: 0;
     right: 0;
     top: 0;
-    z-index: 9;
+    z-index: 9; */
   }
 
   .tab-control {
-    position: sticky;
-    top: 44px;
+    position: relative;
     z-index: 9;
   }
+
+  /* 无效 */
+  /* .fixed {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: 44px;
+  } */
+
+  /* 无效 */
+  /* .tab-contarol {
+    position: sticky;
+    top: 44px;
+  } */
 
   /* .content {
     height: calc(100% - 93px);
